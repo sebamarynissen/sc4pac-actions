@@ -1,0 +1,48 @@
+name: build
+description: Build an sc4pac metadata channel (converting YAML to JSON files)
+
+inputs:
+  path:
+    description: Relative path to source folder containing yaml input files
+    required: true
+  sc4pac-tools-submodule:
+    description: >-
+      If given, this is the relative path to a pinned sc4pac-tools submodule, which is used to build the website.
+      If absent, the website is not built, but only the channel JSON files.
+    required: false
+    default: ''
+  pages-output-path:
+    description: Relative path to output folder containing generated json files (in a "channel" subfolder) and optionally the website.
+    required: true
+
+runs:
+  using: composite
+  steps:
+  - name: Set up JDK 21
+    if: ${{ inputs.sc4pac-tools-submodule == '' }}
+    uses: actions/setup-java@v4
+    with:
+      java-version: '21'
+      distribution: 'temurin'
+  - name: Set up JDK 21 (with sbt cache)
+    if: ${{ inputs.sc4pac-tools-submodule != '' }}
+    uses: actions/setup-java@v4
+    with:
+      java-version: '21'
+      distribution: 'temurin'
+      cache: 'sbt'
+  - name: Build channel
+    shell: bash
+    run: cd "$GITHUB_ACTION_PATH" && sh ../../src/build-channel.sh "$GITHUB_WORKSPACE/$SRC_YAML" "$GITHUB_WORKSPACE/$PAGES/channel"
+    env:
+      SRC_YAML: ${{ inputs.path }}
+      PAGES: ${{ inputs.pages-output-path }}
+  - uses: sbt/setup-sbt@v1
+    if: ${{ inputs.sc4pac-tools-submodule != '' }}
+  - name: Build website
+    if: ${{ inputs.sc4pac-tools-submodule != '' }}
+    shell: bash
+    run: cd "$GITHUB_ACTION_PATH" && sh ../../src/build-website.sh "$GITHUB_WORKSPACE/$SC4PAC_TOOLS" "$GITHUB_WORKSPACE/docs" "$GITHUB_WORKSPACE/$PAGES"
+    env:
+      SC4PAC_TOOLS: ${{ inputs.sc4pac-tools-submodule }}
+      PAGES: ${{ inputs.pages-output-path }}

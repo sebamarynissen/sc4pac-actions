@@ -1,0 +1,27 @@
+name: lint
+description: Static analysis for sc4pac yaml metadata
+
+inputs:
+  path:
+    description: Source folder containing yaml files to analyze
+    required: true
+outputs: {}
+
+runs:
+  using: composite
+  steps:
+  - name: Set up Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: '3.x'
+  - name: Install dependencies
+    shell: bash
+    run: python -m pip install --upgrade PyYAML jsonschema
+  - name: Check sc4pac yaml schema
+    shell: bash
+    run: |
+      : Check sc4pac yaml schema
+      echo $(printf '%.s─' $(seq 1 80))  # horizontal line
+      python "$GITHUB_ACTION_PATH/../../src/sc4pac-yaml-schema.py" "$SRC_YAML"
+    env:
+      SRC_YAML: ${{ inputs.path }}

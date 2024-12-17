@@ -1,0 +1,99 @@
+name: sc4pac-channel
+description: |-
+  Reusable workflow of common actions for building an sc4pac metadata channel.
+  Supported workflow triggers: 'push' and 'pull_request_target'.
+
+on:
+  workflow_call:
+    inputs:
+      path:
+        description: Path to yaml sources directory (e.g. "src")
+        required: true
+        type: string
+      deploy-repository:
+        description: The repository for deployment (to prevent deployment in forks) in the form 'OWNER/REPO'
+        required: true
+        type: string
+      sc4pac-tools-submodule:
+        description: >-
+          If given, this is the relative path to a pinned sc4pac-tools submodule, which is used to build the website.
+          If absent, the website is not built, but only the channel JSON files.
+        required: false
+        type: string
+        default: ''
+      use-stex-api:
+        description: Enable the url-check job. This requires a custom STEX_API_KEY. If disabled, the job is skipped.
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      stex-api-key:
+        description: A private key for accessing the STEX API.
+        required: false
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+        # For pull_request_target:
+        # As merge_commit_sha is not up-to-date due to mergeability check, we use actual PR head for now; see https://github.com/actions/checkout/issues/518#issuecomment-1757453837
+        # (This merge might correspond to a newer commit than the one that triggered this workflow, in case the PR was updated in the meantime -> ok)
+        ref: ${{ github.event_name == 'pull_request_target' && format('refs/pull/{0}/merge', github.event.pull_request.number) || '' }}
+        sparse-checkout: |
+          ${{ inputs.path }}
+    - name: Run linter
+      uses: memo33/sc4pac-actions/actions/lint@main
+      with:
+        path: ${{ inputs.path }}
+
+  url-check:
+    # requires STEX_API_KEY, so job is skipped in forks
+    if: ${{ github.repository == inputs.deploy-repository && inputs.use-stex-api }}
+    runs-on: ubuntu-latest
+    steps:
+    - name: Run url-check
+      uses: memo33/sc4pac-actions/actions/url-check@main
+      with:
+        path: ${{ inputs.path }}
+        stex-api-key: ${{ secrets.stex-api-key }}
+
+  deploy:
+    needs: lint  # url-check is not needed as ST is flaky
+    if: ${{ github.repository == inputs.deploy-repository && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.event_name != 'pull_request_target' }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+    # However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+        submodules: recursive
+    - name: Build channel and website
+      uses: memo33/sc4pac-actions/actions/build@main
+      with:
+        path: ${{ inputs.path }}
+        pages-output-path: 'tmp_gh-pages'
+        sc4pac-tools-submodule: ${{ inputs.sc4pac-tools-submodule }}
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+    - name: Upload artifact
+      # note that this action dereferences our `latest` symlinks, but that's not a huge problem, it just duplicates each json file (could maybe be avoided by using tar)
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: 'tmp_gh-pages'
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+    permissions:
+      pages: write
+      id-token: write
