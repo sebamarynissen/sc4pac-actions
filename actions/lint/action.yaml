@@ -21,6 +21,6 @@ runs:
     run: |
       : Check sc4pac yaml schema
       echo $(printf '%.s─' $(seq 1 80))  # horizontal line
-      python "$GITHUB_ACTION_PATH/../../src/sc4pac-yaml-schema.py" "$SRC_YAML"
+      python "$GITHUB_ACTION_PATH/../../src/lint.py" "$SRC_YAML"
     env:
       SRC_YAML: ${{ inputs.path }}
