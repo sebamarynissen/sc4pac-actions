@@ -30,6 +30,11 @@ on:
         required: false
         type: boolean
         default: false
+      lint:
+        description: Enable the linting action. This is temporary, just used for testing.
+        required: false
+        type: boolean
+        default: true
     secrets:
       stex-api-key:
         description: A private key for accessing the STEX API.
@@ -38,6 +43,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    if: ${{ inputs.lint }}
     steps:
     - uses: actions/checkout@v4
       with:
