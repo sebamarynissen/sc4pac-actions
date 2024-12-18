@@ -11,7 +11,7 @@ import jsonschema
 from jsonschema import ValidationError
 
 # add subfolders as necessary
-subfolders = r"""
+default_subfolders = r"""
 ### [subfolders-docsify]
 050-load-first
 100-props-textures
@@ -37,20 +37,6 @@ subfolders = r"""
 ### [subfolders-docsify]
 """.strip().splitlines()[1:-1]
 
-# Add packages as necessary if the check for matching package and asset
-# versions would otherwise fail and if there is a reason why the versions
-# differ.
-ignore_version_mismatches = set([
-    "vortext:vortexture-1",
-    "vortext:vortexture-2",
-    "t-wrecks:industrial-revolution-mod-addon-set-i-d",
-    "memo:industrial-revolution-mod",
-    "bsc:mega-props-jrj-vol01",
-    "bsc:mega-props-diggis-canals-streams-and-ponds",
-    "bsc:mega-props-rubik3-vol01-wtc-props",
-    "bsc:mega-props-newmaninc-rivers-and-ponds",
-])
-
 # Add packages as necessary. These packages should only be used as dependencies
 # from packages with a matching variant. For example, a package without a DN
 # variant should never depend on simfox:day-and-nite-mod.
@@ -60,127 +46,125 @@ variant_specific_dependencies = {
     "cam:colossus-addon-mod": ("CAM", "yes"),
 }
 
-unique_strings = {
-    "type": "array",
-    "items": {"type": "string"},
-    "uniqueItems": True,
-}
 
-map_of_strings = {
-    "type": "object",
-    "patternProperties": {".*": {"type": "string"}},
-}
+def create_schema(config):
+    unique_strings = {
+        "type": "array",
+        "items": {"type": "string"},
+        "uniqueItems": True,
+    }
 
-asset_schema = {
-    "title": "Asset",
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["assetId", "version", "lastModified", "url"],
-    "properties": {
-        "assetId": {"type": "string"},
-        "version": {"type": "string"},
-        "lastModified": {"type": "string"},
-        "url": {"type": "string", "validate_query_params": True},
-        "nonPersistentUrl": {"type": "string", "validate_query_params": True},
-        "archiveType": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "format": {"enum": ["Clickteam"]},
-                "version": {"enum": ["20", "24", "30", "35", "40"]},
-            },
-        },
-        "checksum": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["sha256"],
-            "properties": {
-                "sha256": {"type": "string", "validate_sha256": True},
-            },
-        },
-    },
-}
+    map_of_strings = {
+        "type": "object",
+        "patternProperties": {".*": {"type": "string"}},
+    }
 
-assets = {
-    "type": "array",
-    "items": {
+    asset_schema = {
+        "title": "Asset",
         "type": "object",
         "additionalProperties": False,
-        "required": ["assetId"],
+        "required": ["assetId", "version", "lastModified", "url"],
         "properties": {
             "assetId": {"type": "string"},
-            "include": {**unique_strings, "validate_pattern": True},
-            "exclude": {**unique_strings, "validate_pattern": True},
-            "withChecksum": {
+            "version": {"type": "string"},
+            "lastModified": {"type": "string"},
+            "url": {"type": "string", "validate_query_params": True},
+            "nonPersistentUrl": {"type": "string", "validate_query_params": True},
+            "archiveType": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "format": {"enum": ["Clickteam"]},
+                    "version": {"enum": ["20", "24", "30", "35", "40"]},
+                },
+            },
+            "checksum": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["sha256"],
+                "properties": {
+                    "sha256": {"type": "string", "validate_sha256": True},
+                },
+            },
+        },
+    }
+
+    assets = {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["assetId"],
+            "properties": {
+                "assetId": {"type": "string"},
+                "include": {**unique_strings, "validate_pattern": True},
+                "exclude": {**unique_strings, "validate_pattern": True},
+                "withChecksum": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["include", "sha256"],
+                        "properties": {
+                            "include": {"type": "string", "validate_pattern": True},
+                            "sha256": {"type": "string", "validate_sha256": True},
+                        },
+                    },
+                    "uniqueItems": True,
+                },
+            },
+        },
+    }
+
+    package_schema = {
+        "title": "Package",
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["group", "name", "version", "subfolder"],
+        "properties": {
+            "group": {"type": "string"},
+            "name": {"type": "string", "validate_name": True},
+            "version": {"type": "string"},
+            "subfolder": {"enum": sorted(set(default_subfolders + config['subfolders']))},
+            "dependencies": unique_strings,
+            "assets": assets,
+            "variants": {
                 "type": "array",
                 "items": {
                     "type": "object",
                     "additionalProperties": False,
-                    "required": ["include", "sha256"],
+                    "required": ["variant"],
                     "properties": {
-                        "include": {"type": "string", "validate_pattern": True},
-                        "sha256": {"type": "string", "validate_sha256": True},
+                        "variant": map_of_strings,
+                        "dependencies": unique_strings,
+                        "assets": assets,
                     },
                 },
-                "uniqueItems": True,
             },
-        },
-    },
-}
-
-package_schema = {
-    "title": "Package",
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["group", "name", "version", "subfolder"],
-    "properties": {
-        "group": {"type": "string"},
-        "name": {"type": "string", "validate_name": True},
-        "version": {"type": "string"},
-        "subfolder": {"enum": subfolders},
-        "dependencies": unique_strings,
-        "assets": assets,
-        "variants": {
-            "type": "array",
-            "items": {
+            "variantDescriptions": {
+                "type": "object",
+                "patternProperties": {".*": map_of_strings},
+            },
+            "info": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["variant"],
                 "properties": {
-                    "variant": map_of_strings,
-                    "dependencies": unique_strings,
-                    "assets": assets,
+                    "summary": {"type": "string"},
+                    "warning": {"type": "string", "validate_text_field": "warning"},
+                    "conflicts": {"type": "string", "validate_text_field": "conflicts"},
+                    "description": {"type": "string", "validate_text_field": "description"},
+                    "author": {"type": "string"},
+                    "images": unique_strings,
+                    "website": {"type": "string", "validate_query_params": True},
                 },
             },
         },
-        "variantDescriptions": {
-            "type": "object",
-            "patternProperties": {".*": map_of_strings},
-        },
-        "info": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "summary": {"type": "string"},
-                "warning": {"type": "string", "validate_text_field": "warning"},
-                "conflicts": {"type": "string", "validate_text_field": "conflicts"},
-                "description": {"type": "string", "validate_text_field": "description"},
-                "author": {"type": "string"},
-                "images": unique_strings,
-                "website": {"type": "string", "validate_query_params": True},
-            },
-        },
-    },
-}
+    }
 
-schema = {
-    "oneOf": [asset_schema, package_schema]
-}
-
-# if there are dependencies to packages in other channels, add those channels here
-extra_channels = [
-    # "https://memo33.github.io/sc4pac/channel/sc4pac-channel-contents.json",
-]
+    schema = {
+        "oneOf": [asset_schema, package_schema]
+    }
+    return schema
 
 
 class DependencyChecker:
@@ -194,7 +178,8 @@ class DependencyChecker:
     desc_invalid_chars_pattern = re.compile(r'\\n|\\"')
     sha256_pattern = re.compile(r"[a-f0-9]*", re.IGNORECASE)
 
-    def __init__(self):
+    def __init__(self, *, config):
+        self.config = config
         self.known_packages = set()
         self.known_assets = set()
         self.referenced_packages = set()
@@ -313,19 +298,21 @@ class DependencyChecker:
     def _get_channel_contents(self, channel_url):
         import urllib.request
         import json
+        if channel_url.endswith("/"):  # otherwise it should be a .yaml file
+            channel_url = f"{channel_url}sc4pac-channel-contents.json"
         req = urllib.request.Request(channel_url)
         with urllib.request.urlopen(req) as data:
             channel_contents = json.load(data)
-        return channel_contents['contents']
+        return channel_contents
 
     def unknowns(self):
         packages = self.referenced_packages.difference(self.known_packages)
         assets = self.referenced_assets.difference(self.known_assets)
         if packages or assets:
             # some dependencies are not known, so check other channels
-            contents = [self._get_channel_contents(channel_url) for channel_url in extra_channels]
-            remote_assets = [pkg['name'] for c in contents for pkg in c if pkg['group'] == "sc4pacAsset"]
-            remote_packages = [f"{pkg['group']}:{pkg['name']}" for c in contents for pkg in c if pkg['group'] != "sc4pacAsset"]
+            channels = [self._get_channel_contents(channel_url) for channel_url in self.config['extra-channels']]
+            remote_assets = [pkg['name'] for c in channels for pkg in c['assets']]
+            remote_packages = [f"{pkg['group']}:{pkg['name']}" for c in channels for pkg in c['packages']]
             packages = packages.difference(remote_packages)
             assets = assets.difference(remote_assets)
         return {'packages': sorted(packages), 'assets': sorted(assets)}
@@ -353,6 +340,7 @@ class DependencyChecker:
         return len(self.packages_using_asset.get(asset, [])) <= 3
 
     def package_asset_version_mismatches(self):
+        ignore_version_mismatches = set(self.config['ignore-version-mismatches'])
         for pkg, (version, assets) in self.packages_with_single_assets.items():
             if pkg in ignore_version_mismatches:
                 continue
@@ -383,72 +371,107 @@ def validate_document_separators(text) -> None:
                 "YAML file contains multiple package and asset definitions. They all need to be separated by `---`.")
 
 
-def validate_pattern(validator, value, instance, schema):
-    patterns = [instance] if isinstance(instance, str) else instance
-    bad_patterns = [p for p in patterns if p.startswith('.*')]
-    if bad_patterns:
-        yield ValidationError(f"include/exclude patterns should not start with '.*' in {bad_patterns}")
+def create_validators(config):
+
+    def validate_pattern(validator, value, instance, schema):
+        patterns = [instance] if isinstance(instance, str) else instance
+        bad_patterns = [p for p in patterns if p.startswith('.*')]
+        if bad_patterns:
+            yield ValidationError(f"include/exclude patterns should not start with '.*' in {bad_patterns}")
+
+    _irrelevant_query_parameters = [
+        ("sc4evermore.com", ("catid",)),
+        ("simtropolis.com", ("confirm", "t", "csrfKey")),
+    ]
+
+    def validate_query_params(validator, value, url, schema):
+        msgs = []
+        if '/sc4evermore.com/' in url:
+            msgs.append(f"Domain of URL {url} should be www.sc4evermore.com (add www.)")
+        qs = parse_qs(urlparse(url).query)
+        bad_params = [p for domain, params in _irrelevant_query_parameters
+                      if domain in url for p in params if p in qs]
+        if bad_params:
+            msgs.append(f"Avoid these URL query parameters: {', '.join(bad_params)}")
+        if msgs:
+            yield ValidationError('\n'.join(msgs))
+
+    def validate_name(validator, value, name, schema):
+        if "-vol-" in name:
+            yield ValidationError(f"Avoid the hyphen after 'vol' (for consistency with other packages): {name}")
+
+    allow_ego_perspective = config['allow-ego-perspective']
+    def validate_text_field(validator, field, text, schema):
+        msgs = []
+        if text is not None and text.strip().lower() == "none":
+            msgs.append(f"""Text "{field}" should not be "{text.strip()}", but should be omitted instead.""")
+        if text is not None and not allow_ego_perspective and DependencyChecker.pronouns_pattern.search(text):
+            msgs.append(f"""The "{field}" should be written in a neutral perspective (avoid the words 'I', 'me', 'my').""")
+        if text is not None and DependencyChecker.desc_invalid_chars_pattern.search(text):
+            msgs.append("""The "{field}" seems to be malformed (avoid the characters '\\n', '\\"').""")
+        if msgs:
+            yield ValidationError('\n'.join(msgs))
+
+    def validate_sha256(validator, value, text, schema):
+        if not (len(text) == 64 and DependencyChecker.sha256_pattern.fullmatch(text)):
+            yield ValidationError(f"value is not a sha256: {text}")
+
+    return dict(
+        validate_pattern=validate_pattern,
+        validate_query_params=validate_query_params,
+        validate_name=validate_name,
+        validate_text_field=validate_text_field,
+        validate_sha256=validate_sha256,
+    )
 
 
-_irrelevant_query_parameters = [
-    ("sc4evermore.com", ("catid",)),
-    ("simtropolis.com", ("confirm", "t", "csrfKey")),
-]
+def show_usage():
+    print(
+        "Usage: Pass at least one directory or yaml file to validate as argument.\n"
+        "Options:\n"
+        """--config <path>  path to lint-config.yaml file (defaults to "./lint-config.yaml")"""
+    )
+    return 1
 
 
-def validate_query_params(validator, value, url, schema):
-    msgs = []
-    if '/sc4evermore.com/' in url:
-        msgs.append(f"Domain of URL {url} should be www.sc4evermore.com (add www.)")
-    qs = parse_qs(urlparse(url).query)
-    bad_params = [p for domain, params in _irrelevant_query_parameters
-                  if domain in url for p in params if p in qs]
-    if bad_params:
-        msgs.append(f"Avoid these URL query parameters: {', '.join(bad_params)}")
-    if msgs:
-        yield ValidationError('\n'.join(msgs))
-
-
-def validate_name(validator, value, name, schema):
-    if "-vol-" in name:
-        yield ValidationError(f"Avoid the hyphen after 'vol' (for consistency with other packages): {name}")
-
-
-def validate_text_field(validator, field, text, schema):
-    msgs = []
-    if text is not None and text.strip().lower() == "none":
-        msgs.append(f"""Text "{field}" should not be "{text.strip()}", but should be omitted instead.""")
-    if text is not None and DependencyChecker.pronouns_pattern.search(text):
-        msgs.append(f"""The "{field}" should be written in a neutral perspective (avoid the words 'I', 'me', 'my').""")
-    if text is not None and DependencyChecker.desc_invalid_chars_pattern.search(text):
-        msgs.append("""The "{field}" seems to be malformed (avoid the characters '\\n', '\\"').""")
-    if msgs:
-        yield ValidationError('\n'.join(msgs))
-
-
-def validate_sha256(validator, value, text, schema):
-    if not (len(text) == 64 and DependencyChecker.sha256_pattern.fullmatch(text)):
-        yield ValidationError(f"value is not a sha256: {text}")
+def load_config(config_path):
+    default_config = {
+        'extra-channels': [],
+        'subfolders': [],
+        'ignore-version-mismatches': [],
+        'allow-ego-perspective': False,
+    }
+    try:
+        with open(config_path, encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+            return {**default_config, **config}
+    except FileNotFoundError:
+        print(f"Configuration file {config_path} not found, so using default configuration.")
+        return default_config
 
 
 def main() -> int:
     args = sys.argv[1:]
-    if not args:
-        "Pass at least one directory or yaml file to validate as argument."
-        return 1
+    config_path = "lint-config.yaml"
+    while True:
+        if not args:
+            return show_usage()
+        if args[0] == "--config":
+            if len(args) < 2:
+                return show_usage()
+            config_path = args[1]
+            args = args[2:]
+            continue
+        break
+    config = load_config(config_path)
 
+    schema = create_schema(config)
     validator = jsonschema.validators.extend(
             jsonschema.validators.Draft202012Validator,
-            validators=dict(
-                validate_pattern=validate_pattern,
-                validate_query_params=validate_query_params,
-                validate_name=validate_name,
-                validate_text_field=validate_text_field,
-                validate_sha256=validate_sha256,
-            ),
+            validators=create_validators(config),
         )(schema)
     validator.check_schema(schema)
-    dependency_checker = DependencyChecker()
+    dependency_checker = DependencyChecker(config=config)
     validated = 0
     errors = 0
 
@@ -510,7 +533,7 @@ def main() -> int:
         basic_report(dependency_checker.invalid_package_names, "the following package names do not match the naming convention (lowercase alphanumeric hyphenated)")
         basic_report(dependency_checker.invalid_variant_names, "the following variant labels or values do not match the naming convention (alphanumeric hyphenated or dots)")
         basic_report(list(dependency_checker.package_asset_version_mismatches()),
-                     "The versions of the following packages do not match the version of the referenced assets (usually they should agree, but if the version mismatch is intentional, the packages can be added to the ignore list in .github/sc4pac-yaml-schema.py):",
+                     "The versions of the following packages do not match the version of the referenced assets (usually they should agree, but if the version mismatch is intentional, the packages can be added to the 'ignore-version-mismatches' list in lint-config.yaml):",
                      lambda tup: """{0} "{1}" (expected version "{3}" of asset {2})""".format(*tup))  # pkg, v1, asset, v2
         basic_report(dependency_checker.dlls_without_checksum, "The following packages appear to contain DLLs. A sha256 checksum is required for DLLs (add a `withChecksum` field).")
         basic_report(dependency_checker.http_without_checksum, "The following assets use http instead of https. They should include a `checksum` field.")
