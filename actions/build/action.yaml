@@ -14,6 +14,12 @@ inputs:
   pages-output-path:
     description: Relative path to output folder containing generated json files (in a "channel" subfolder) and optionally the website.
     required: true
+  channel-label:
+    description: Short name for the channel, passed as label to the channel-build command.
+    required: true
+  metadata-source-url:
+    description: URL base path for yaml files, passed to the channel-build command.
+    required: true
 
 runs:
   using: composite
@@ -37,10 +43,12 @@ runs:
 
   - name: Build channel
     shell: bash
-    run: sc4pac channel build --output "$PAGES/channel" "$SRC_YAML"
+    run: sc4pac channel build --label "$LABEL" --metadata-source-url "$METADATA_SOURCE_URL" --output "$PAGES/channel" "$SRC_YAML"
     env:
       SRC_YAML: ${{ inputs.path }}
       PAGES: ${{ inputs.pages-output-path }}
+      LABEL: ${{ inputs.channel-label }}
+      METADATA_SOURCE_URL: ${{ inputs.metadata-source-url }}
 
   - uses: sbt/setup-sbt@v1
     if: ${{ inputs.sc4pac-tools-submodule != '' }}
