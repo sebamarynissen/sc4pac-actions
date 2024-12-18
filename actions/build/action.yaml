@@ -31,12 +31,17 @@ runs:
       java-version: '21'
       distribution: 'temurin'
       cache: 'sbt'
+
+  - name: Install sc4pac
+    uses: memo33/sc4pac-actions/actions/setup@main
+
   - name: Build channel
     shell: bash
-    run: cd "$GITHUB_ACTION_PATH" && sh ../../src/build-channel.sh "$GITHUB_WORKSPACE/$SRC_YAML" "$GITHUB_WORKSPACE/$PAGES/channel"
+    run: sc4pac channel build --output "$PAGES/channel" "$SRC_YAML"
     env:
       SRC_YAML: ${{ inputs.path }}
       PAGES: ${{ inputs.pages-output-path }}
+
   - uses: sbt/setup-sbt@v1
     if: ${{ inputs.sc4pac-tools-submodule != '' }}
   - name: Build website
