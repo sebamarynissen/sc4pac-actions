@@ -47,7 +47,11 @@ runs:
   - name: Build website
     if: ${{ inputs.sc4pac-tools-submodule != '' }}
     shell: bash
-    run: cd "$GITHUB_ACTION_PATH" && sh ../../src/build-website.sh "$GITHUB_WORKSPACE/$SC4PAC_TOOLS" "$GITHUB_WORKSPACE/docs" "$GITHUB_WORKSPACE/$PAGES"
+    run: |
+      : Build website
+      (cd "$SC4PAC_TOOLS" && ./src/scripts/build-channel-page.sh)
+      cp -p "$SC4PAC_TOOLS/web/target/website/channel"/* "$PAGES/channel/"
+      cp -pr docs/. "$PAGES"
     env:
       SC4PAC_TOOLS: ${{ inputs.sc4pac-tools-submodule }}
       PAGES: ${{ inputs.pages-output-path }}
