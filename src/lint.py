@@ -173,6 +173,7 @@ class DependencyChecker:
     naming_convention_variants_value = re.compile(r"[a-z0-9]+([-\.][a-z0-9]+)*", re.IGNORECASE)
     naming_convention_variants = re.compile(  # group:package:variant (regex groups: \1:\2:\3)
             rf"(?:({naming_convention.pattern}):)?(?:({naming_convention.pattern}):)?([a-zA-Z0-9]+(?:[-\.][a-zA-Z0-9]+)*)")
+    naming_convention_files = re.compile(r"[a-z0-9]+([-\./][a-z0-9]+)*", re.IGNORECASE)
     version_rel_pattern = re.compile(r"(.*?)(-\d+)?")
     pronouns_pattern = re.compile(r"\b[Mm][ey]\b|(?:\bI\b(?!-|\.| [A-Z]))")
     desc_invalid_chars_pattern = re.compile(r'\\n|\\"')
@@ -488,7 +489,10 @@ def main() -> int:
             for fname in files:
                 if not fname.endswith(".yaml"):
                     continue
+                msgs = []
                 p = os.path.join(root, fname)
+                if not DependencyChecker.naming_convention_files.fullmatch(p):
+                    msgs.append("File name should not contain spaces or other special characters.")
                 with open(p, encoding='utf-8') as f:
                     validated += 1
                     text = f.read()
@@ -499,17 +503,15 @@ def main() -> int:
                                 continue
                             dependency_checker.aggregate_identifiers(doc)
                             err = jsonschema.exceptions.best_match(validator.iter_errors(doc))
-                            msgs = [] if err is None else [err.message]
-
-                            if msgs:
-                                errors += 1
-                                print(f"===> {p}")
-                                for msg in msgs:
-                                    print(msg)
+                            if err is not None:
+                                msgs.append(err.message)
                     except yaml.parser.ParserError as err:
-                        errors += 1
-                        print(f"===> {p}")
-                        print(err)
+                        msgs.append(str(err))
+                if msgs:
+                    errors += len(msgs)
+                    print(f"===> {p}")
+                    for msg in msgs:
+                        print(msg)
 
     if not errors:
         # check that all dependencies exist
