@@ -484,14 +484,14 @@ def main() -> int:
             for identifier in identifiers:
                 print(identifier if stringify is None else stringify(identifier))
 
-    for d in args:
-        for (root, dirs, files) in os.walk(d):
+    for src_dir in args:
+        for (parent, dirs, files) in os.walk(src_dir):
             for fname in files:
                 if not fname.endswith(".yaml"):
                     continue
                 msgs = []
-                p = os.path.join(root, fname)
-                if not DependencyChecker.naming_convention_files.fullmatch(p):
+                p = os.path.join(parent, fname)
+                if not DependencyChecker.naming_convention_files.fullmatch(os.path.relpath(p, start=src_dir)):
                     msgs.append("File name should not contain spaces or other special characters.")
                 with open(p, encoding='utf-8') as f:
                     validated += 1
