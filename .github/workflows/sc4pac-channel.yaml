@@ -30,6 +30,11 @@ on:
         required: false
         type: boolean
         default: false
+      ref:
+        description: The branch, tag or SHA to use when checking out the repository.
+        required: false
+        type: string
+        default: ''
     secrets:
       stex-api-key:
         description: A private key for accessing the STEX API.
@@ -41,6 +46,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
+        ref: ${{ inputs.ref }}
         persist-credentials: false
         # For pull_request_target:
         # As merge_commit_sha is not up-to-date due to mergeability check, we use actual PR head for now; see https://github.com/actions/checkout/issues/518#issuecomment-1757453837
@@ -80,6 +86,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
+        ref: ${{ inputs.ref }}
         persist-credentials: false
         submodules: recursive
     - name: Build channel and website
